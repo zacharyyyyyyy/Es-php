@@ -1,11 +1,16 @@
 <?php
+namespace EsPhp;
 require 'vendor/autoload.php';
 use Elasticsearch\ClientBuilder;
 class EsSearch {
     private $client;
     private $param = [];
     public function __construct($host = ['http://127.0.0.1:9200']) {
-        $this->client = ClientBuilder::create()->setHosts($host)->build();
+        try {
+            $this->client = ClientBuilder::create()->setHosts($host)->setRetries(3)->build();
+        } catch (\Exception $e) {
+            return 'Collect fail,error:' . $e;
+        }
     }
     /**
      * 设置搜索索引类型
@@ -13,49 +18,136 @@ class EsSearch {
      * @param null $type
      * @return $this
      */
-    public function base($index, $type = null) {
+    public function base($index, $type = null, $timeout = 20, $connect_timeout = 20) {
         $this->param = [
             'index' => $index,
             'type' => $type,
+            'client' => [
+                'timeout' => $timeout,
+                'connect_timeout' => $connect_timeout
+            ]
         ];
         return $this;
     }
     /**
-     * 条件判断
+     * 条件判断 并
      * @param $key
      * @param $value
      * @return $this
      */
-    public function where($key, $compare, $value) {
+    public function where($key, $compare, $value, $separate = true) {
         if ($key == 'id') {
             $this->param['id'] = $value;
         } else {
             switch ($compare) {
                 case '=':
-                    $this->param['body']['query']['bool']['must'] = [
-                        'match' => [
-                            $key => $value
-                        ]
-                    ];
+                    if ($separate == true) {
+                        $this->param['body']['query']['bool']['must'][] = [
+                            'match' => [
+                                $key => $value
+                            ]
+                        ];
+                    } else {
+                        $this->param['body']['query']['bool']['must'] = [
+                            'term' => [
+                                $key => $value
+                            ]
+                        ];
+                    }
                     break;
-                case ">":
-                    $this->param['body']['query']['bool']['must']['range'][$key]['gt'] = $value;
+                case '>':
+                    $this->param['body']['query']['bool']['must'][]['range'][$key]['gt'] = $value;
                     break;
-                case "<":
-                    $this->param['body']['query']['bool']['must']['range'][$key]['lt'] = $value;
+                case '<':
+                    $this->param['body']['query']['bool']['must'][]['range'][$key]['lt'] = $value;
                     break;
-                case ">=":
-                    $this->param['body']['query']['bool']['must']['range'][$key]['gte'] = $value;
+                case '>=':
+                    $this->param['body']['query']['bool']['must'][]['range'][$key]['gte'] = $value;
                     break;
                 case '<=':
-                    $this->param['body']['query']['bool']['must']['range'][$key]['lte'] = $value;
+                    $this->param['body']['query']['bool']['must'][]['range'][$key]['lte'] = $value;
                     break;
             }
         }
         return $this;
     }
-    public function orwhere(){
-
+    /**
+     * 条件判断 或
+     * @param $key
+     * @param $compare
+     * @param $value
+     * @return $this
+     */
+    public function orwhere($key, $compare, $value, $separate = true) {
+        switch ($compare) {
+            case '=':
+                if ($separate == true) {
+                    $this->param['body']['query']['bool']['should'][] = [
+                        'match' => [
+                            $key => $value
+                        ]
+                    ];
+                } else {
+                    $this->param['body']['query']['bool']['should'] = [
+                        'term' => [
+                            $key => $value
+                        ]
+                    ];
+                }
+                break;
+            case '>':
+                $this->param['body']['query']['bool']['should'][]['range'][$key]['gt'] = $value;
+                break;
+            case '<':
+                $this->param['body']['query']['bool']['should'][]['range'][$key]['lt'] = $value;
+                break;
+            case '>=':
+                $this->param['body']['query']['bool']['should'][]['range'][$key]['gte'] = $value;
+                break;
+            case '<=':
+                $this->param['body']['query']['bool']['should'][]['range'][$key]['lte'] = $value;
+                break;
+        }
+        return $this;
+    }
+    /**
+     * 判断条件  非
+     * @param $key
+     * @param $compare
+     * @param $value
+     * @return $this
+     */
+    public function wherenot($key, $compare, $value, $separate = true) {
+        switch ($compare) {
+            case '=':
+                if ($separate == true) {
+                    $this->param['body']['query']['bool']['must_not'][] = [
+                        'match' => [
+                            $key => $value
+                        ]
+                    ];
+                } else {
+                    $this->param['body']['query']['bool']['must_not'] = [
+                        'term' => [
+                            $key => $value
+                        ]
+                    ];
+                }
+                break;
+            case '>':
+                $this->param['body']['query']['bool']['must_not'][]['range'][$key]['gt'] = $value;
+                break;
+            case '<':
+                $this->param['body']['query']['bool']['must_not'][]['range'][$key]['lt'] = $value;
+                break;
+            case '>=':
+                $this->param['body']['query']['bool']['must_not'][]['range'][$key]['gte'] = $value;
+                break;
+            case '<=':
+                $this->param['body']['query']['bool']['must_not'][]['range'][$key]['lte'] = $value;
+                break;
+        }
+        return $this;
     }
     /**
      * 大于等于&&小于等于
@@ -106,24 +198,26 @@ class EsSearch {
         $data = $response['_source'];
         return $data;
     }
+    /**
+     * future mode
+     * @return array|string
+     */
     public function get() {
+        $this->param['client']['future'] = 'lazy';
+        $future = [];
         try {
-            $response = $this->client->get($this->param);
+            $future = $this->client->get($this->param);
         } catch (\Exception $e) {
             return 'Data not found.';
         }
-        if ($response["found"] == false) {
-            return 'Data not found.';
-        }
-        $data = $response;
-        return $data;
+
     }
     /**
      * 搜索
      * @return string
      */
     public function search() {
-        return $this->param;
+        //  return $this->param;
         try {
             $response = $this->client->search($this->param);
         } catch (\Exception $e) {
@@ -152,7 +246,24 @@ class EsSearch {
         }
         return 'Data insert success';
     }
+    /**
+     * 批量插入
+     * @param array $data
+     */
     public function bulk(array $data) {
+        $this->param['body'] = [];
+        $length = sizeof($data);
+        for ($i = 1; $i <= $length; $i++) {
+            $this->param['body'][] = $data[$i];
+            if ($i % 200 == 0) {
+                $response = $this->client->bulk($this->param);
+                $this->param['body'] = [];
+                unset($response);
+            }
+        }
+        if (! empty($this->param['body'])) {
+            $response = $this->client->bulk($this->param);
+        }
     }
     /**
      * 更新
@@ -171,6 +282,21 @@ class EsSearch {
         return 'Data update success';
     }
     /**
+     * 更新或插入
+     * @param array $data
+     */
+    public function upsert(array $data){
+        $this->param['body']=[
+            'upsert'=>$data
+        ];
+        try {
+            $this->client->update($this->param);
+        } catch (\Exception $e) {
+            return 'Data upsert fail';
+        }
+        return 'Data upsert success';
+    }
+    /**
      * 删除一个文档
      * @param $id
      * @return string
@@ -186,5 +312,6 @@ class EsSearch {
     }
 }
 $es = new EsSearch();
-$data = $es->base('human')->where('class', '>', 1)->where('age','>',20)->search();
+$data = $es->base('human')->where('class', '>', 1)->where('age', '>', 19)->search();
 print_r($data);
+
