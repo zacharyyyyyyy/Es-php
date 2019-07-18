@@ -7,7 +7,10 @@ class EsSearch {
     private $param = [];
     public function __construct($host = ['http://127.0.0.1:9200']) {
         try {
-            $this->client = ClientBuilder::create()->setHosts($host)->setRetries(3)->build();
+            $this->client = ClientBuilder::create()
+                ->setHosts($host)
+                ->setRetries(3)
+                ->build();
         } catch (\Exception $e) {
             return 'Collect fail,error:' . $e;
         }
@@ -196,6 +199,7 @@ class EsSearch {
             return 'Data not found.';
         }
         $data = $response['_source'];
+        unset($this->param);
         return $data;
     }
     /**
@@ -210,7 +214,6 @@ class EsSearch {
         } catch (\Exception $e) {
             return 'Data not found.';
         }
-
     }
     /**
      * 搜索
@@ -230,6 +233,7 @@ class EsSearch {
         foreach ($response['hits']['hits'] as $value) {
             $data['data'][] = $value['_source'];
         }
+        unset($this->param);
         return $data;
     }
     /**
@@ -244,6 +248,7 @@ class EsSearch {
         } catch (\Exception $e) {
             return 'Data insert fail';
         }
+        unset($this->param);
         return 'Data insert success';
     }
     /**
@@ -279,21 +284,23 @@ class EsSearch {
         } catch (\Exception $e) {
             return 'Data update fail';
         }
+        unset($this->param);
         return 'Data update success';
     }
     /**
      * 更新或插入
      * @param array $data
      */
-    public function upsert(array $data){
-        $this->param['body']=[
-            'upsert'=>$data
+    public function upsert(array $data) {
+        $this->param['body'] = [
+            'upsert' => $data
         ];
         try {
             $this->client->update($this->param);
         } catch (\Exception $e) {
             return 'Data upsert fail';
         }
+        unset($this->param);
         return 'Data upsert success';
     }
     /**
@@ -308,10 +315,10 @@ class EsSearch {
         } catch (\Exception $e) {
             return 'fail' . $e;
         }
+        unset($this->param);
         return 'success';
     }
 }
 $es = new EsSearch();
-$data = $es->base('human')->where('class', '>', 1)->where('age', '>', 19)->search();
+$data = $es->base('human')->where('class', '=', 1)->where('age', '>', 18)->search();
 print_r($data);
-
