@@ -12,6 +12,13 @@ class EsSearch {
             return 'Collect fail,error:' . $e->getMessage();
         }
     }
+
+    public static function connection($host=['http://127.0.0.1:9200']){
+        $client=new self($host);
+        return $client;
+    }
+
+
     /**
      * 设置搜索索引类型
      * @param $index
@@ -186,12 +193,11 @@ class EsSearch {
      * @return $this
      */
     public function limit($limit) {
-        $this->param['body']['size'] =  $limit;
-
+        $this->param['body']['size'] = $limit;
         return $this;
     }
     public function offset($offset) {
-        $this->param['body']['from']=$offset;
+        $this->param['body']['from'] = $offset;
         return $this;
     }
     /**
@@ -256,7 +262,7 @@ class EsSearch {
         try {
             $response = $this->client->index($this->param);
         } catch (\Exception $e) {
-            return 'Data insert fail';
+            return 'Data insert fail,error:' . $e->getMessage();
         }
         unset($this->param);
         return 'Data insert success';
@@ -292,7 +298,7 @@ class EsSearch {
         try {
             $this->client->update($this->param);
         } catch (\Exception $e) {
-            return 'Data update fail';
+            return 'Data update fail,error:' . $e->getMessage();
         }
         unset($this->param);
         return 'Data update success';
@@ -308,7 +314,7 @@ class EsSearch {
         try {
             $this->client->update($this->param);
         } catch (\Exception $e) {
-            return 'Data upsert fail';
+            return 'Data upsert fail,error' . $e->getMessage();
         }
         unset($this->param);
         return 'Data upsert success';
@@ -323,15 +329,14 @@ class EsSearch {
         try {
             $this->client->delete($this->param);
         } catch (\Exception $e) {
-            return 'fail' . $e;
+            return 'Data delete fail,error:' . $e->getMessage();
         }
         unset($this->param);
-        return 'success';
+        return 'Data delete success';
     }
 }
-$es = new EsSearch();
 $page = 1;
-$limit =3;
+$limit = 3;
 $offset = ($page - 1) * $limit;
-$data = $es->base('human')->limit($limit)->offset($offset)->search();
+$data = EsSearch::connection()->base('human')->limit($limit)->offset($offset)->search();
 print_r($data);
