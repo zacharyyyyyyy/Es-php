@@ -7,12 +7,9 @@ class EsSearch {
     private $param = [];
     public function __construct($host = ['http://127.0.0.1:9200']) {
         try {
-            $this->client = ClientBuilder::create()
-                ->setHosts($host)
-                ->setRetries(3)
-                ->build();
+            $this->client = ClientBuilder::create()->setHosts($host)->setRetries(3)->build();
         } catch (\Exception $e) {
-            return 'Collect fail,error:' . $e;
+            return 'Collect fail,error:' . $e->getMessage();
         }
     }
     /**
@@ -184,6 +181,20 @@ class EsSearch {
         return $this;
     }
     /**
+     * 分页部分
+     * @param $limit
+     * @return $this
+     */
+    public function limit($limit) {
+        $this->param['body']['size'] =  $limit;
+
+        return $this;
+    }
+    public function offset($offset) {
+        $this->param['body']['from']=$offset;
+        return $this;
+    }
+    /**
      * 获得一个文档
      * @param $id
      * @return array|string
@@ -220,7 +231,6 @@ class EsSearch {
      * @return string
      */
     public function search() {
-        //  return $this->param;
         try {
             $response = $this->client->search($this->param);
         } catch (\Exception $e) {
@@ -320,5 +330,8 @@ class EsSearch {
     }
 }
 $es = new EsSearch();
-$data = $es->base('human')->where('class', '=', 1)->where('age', '>', 18)->search();
+$page = 1;
+$limit =3;
+$offset = ($page - 1) * $limit;
+$data = $es->base('human')->limit($limit)->offset($offset)->search();
 print_r($data);
